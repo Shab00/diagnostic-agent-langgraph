@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 import store
-from agent import run_agent
+from agent_langgraph import run_agent
 from models import AuditEntry, FaultReport, RankedReport
 from security import sanitise_fault_report, validate_component
 from simulator import list_scenarios
