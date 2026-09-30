@@ -1,0 +1,16 @@
+Plan V2 approved. Two adjustments before implementation:
+
+1. In IMPLEMENTATION_STEPS.md, detect_conflict is listed under "LLM Nodes & Prompts" in Step 2c, but it's correctly classified as pure Python in PLAN_V2.md §2. Confirm in your implementation that detect_conflict is pure Python (calls build_conflict_summary()) and only acts as a routing node via graph.add_conditional_edges(). No LLM call in detect_conflict.
+
+2. CHANGE THE GATING STRATEGY. Do not wait for approval between steps 2a through 2d. Instead:
+   - Execute 2a (state + stubs)
+   - Execute 2b (four pure Python nodes)
+   - Execute 2c (LLM nodes + prompts)
+   - Execute 2d (graph wiring)
+   Then STOP before running any tests. Show me the complete agent.py and the graph topology (draw_ascii output or equivalent).
+
+   If any step fails or you're uncertain, STOP immediately and report the problem.
+
+   Steps 2e (cache_collapse test) and 2f (all three scenarios) still require approval gates — one at a time, not combined.
+
+Begin now with 2a.

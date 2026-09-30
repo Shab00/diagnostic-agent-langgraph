@@ -1,0 +1,12 @@
+Two small patches to agent_langgraph.py before testing:
+
+1. In both rank_repairs_conflict and rank_repairs_agreement, change temperature=0.7 to temperature=0.2. High temperature is unreliable for structured JSON output.
+
+2. In both nodes' except blocks, add a log line before the fallback call:
+   import logging
+   logging.warning(f"rank_repairs LLM call failed, using fallback: {e}")
+   (Add `import logging` at the top of the file if not present.)
+
+Do NOT change anything else. After both edits, show me the modified lines (grep for temperature and for logging.warning).
+
+Then STOP.

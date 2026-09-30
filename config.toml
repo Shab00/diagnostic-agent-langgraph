@@ -1,0 +1,9 @@
+[core]
+save_trajectory_path = "./trajectories"
+cli_multiline_input = false
+
+[llm]
+model = "free_first"
+api_key = "sk-025bdfe15d71fd7a-z2fdpm-fbd8e634"
+base_url = "http://localhost:20128/v1"
+custom_llm_provider = "openai"

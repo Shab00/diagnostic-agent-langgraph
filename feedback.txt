@@ -1,0 +1,18 @@
+Plan is approved with three changes:
+
+1. RESTORE the conditional edge on has_conflict. After detect_conflict, branch to two different rank_repairs variants:
+   - rank_repairs_conflict — prompt emphasizes weighing sources and explaining trust
+   - rank_repairs_agreement — prompt ranks normally
+   Both converge on write_justification. This is the architectural story of the project.
+
+2. RECONSIDER write_justification. Either merge it into rank_repairs (single LLM call, matches old behavior), or give it a distinct purpose: writing the top-level narrative summary that ties the ranked strategies together. Do not have it merely "polish" the previous call's prose. Pick one and state which.
+
+3. BREAK the implementation into smaller steps. Before writing any file, output the step list. Then execute one step at a time and wait for me to confirm each is correct before proceeding. Steps should be:
+   - 2a: State schema + node signatures (stubs)
+   - 2b: Four pure Python nodes
+   - 2c: LLM nodes with prompts
+   - 2d: Graph wiring
+   - 2e: End-to-end test on cache_collapse scenario
+   - 2f: Test all three scenarios
+
+Update the plan with these three changes, show me the revised plan, and STOP again for final approval.
