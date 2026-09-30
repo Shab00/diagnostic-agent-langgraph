@@ -358,7 +358,7 @@ def compute_apm_diagnostics(state: DiagnosticAgentState) -> DiagnosticAgentState
     Sets state["diagnostic_a"].
     """
     diagnostic_a = get_apm_diagnostics(state["system_state"], state["fault_description"])
-    return {**state, "diagnostic_a": diagnostic_a}
+    return {"diagnostic_a": diagnostic_a}
 
 
 def compute_infra_diagnostics(state: DiagnosticAgentState) -> DiagnosticAgentState:
@@ -368,7 +368,7 @@ def compute_infra_diagnostics(state: DiagnosticAgentState) -> DiagnosticAgentSta
     Sets state["diagnostic_b"].
     """
     diagnostic_b = get_infra_diagnostics(state["system_state"], state["fault_description"])
-    return {**state, "diagnostic_b": diagnostic_b}
+    return {"diagnostic_b": diagnostic_b}
 
 
 def compute_severity_ranking(state: DiagnosticAgentState) -> DiagnosticAgentState:
@@ -378,7 +378,7 @@ def compute_severity_ranking(state: DiagnosticAgentState) -> DiagnosticAgentStat
     Sets state["severity_ranking"].
     """
     severity_ranking = build_severity_ranking(state["system_state"])
-    return {**state, "severity_ranking": severity_ranking}
+    return {"severity_ranking": severity_ranking}
 
 
 def detect_conflict(state: DiagnosticAgentState) -> DiagnosticAgentState:
