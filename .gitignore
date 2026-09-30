@@ -5,3 +5,16 @@ __pycache__/
 *.pyc
 trajectories/
 .pytest_cache/
+
+# Local OpenHands config — contains 9router key
+config.toml
+
+# Internal working files — not part of the project
+patch*.txt
+feedback.txt
+approval.txt
+task.txt
+LANGGRAPH_MIGRATION_PLAN_V2.md
+IMPLEMENTATION_STEPS.md
+PLAN_SUMMARY.md
+LANGGRAPH_MIGRATION_SUMMARY.md
