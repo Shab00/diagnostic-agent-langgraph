@@ -1,0 +1,14 @@
+STRICT SCOPE: Only edit agent_langgraph.py. Do not run git commands. Do not commit, stage, or push. Do not touch routes or any other file.
+
+In BOTH rank_repairs_conflict and rank_repairs_agreement prompts, add this block immediately before the "TASK:" line:
+
+CRITICAL OUTPUT FORMAT:
+Your entire response must be a single valid JSON object.
+- Start your response with the character {
+- End your response with the character }
+- Do not write any prose before or after the JSON
+- Do not use markdown code fences (no ```json)
+- Do not write headers, bullet points, or commentary outside the JSON structure
+- The first character of your output must be { and the last must be }
+
+Then STOP. Do not run any commands. Do not test.

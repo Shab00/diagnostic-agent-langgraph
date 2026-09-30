@@ -1,0 +1,47 @@
+TRICT SCOPE: Only edit agent_langgraph.py. Do not touch routes, do not commit, do not run tests. Add one helper function and use it in two places.
+
+1. Add a helper function near the top of the LLM section (after _get_llm_client):
+
+def _parse_json_response(text: str) -> dict:
+    """Robustly extract a JSON object from an LLM response.
+    
+    Handles: bare JSON, fenced JSON, JSON with preamble prose.
+    """
+    if not text:
+        raise ValueError("Empty LLM response")
+    
+    # Strip code fences if present
+    if "```json" in text:
+        text = text.split("```json", 1)[1].split("```", 1)[0].strip()
+    elif "```" in text:
+        text = text.split("```", 1)[1].split("```", 1)[0].strip()
+    
+    # Try direct parse
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    
+    # Fall back: first { to last }
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return json.loads(text[start:end+1])
+    
+    raise ValueError(f"Could not parse JSON from response: {text[:200]}")
+
+2. In rank_repairs_conflict, replace the current extraction block:
+    if "```json" in response_text: ...
+    elif "```" in response_text: ...
+    ranking_data = json.loads(response_text)
+   
+   With:
+    ranking_data = _parse_json_response(response_text)
+
+3. In rank_repairs_agreement, do the same replacement.
+
+Do not change anything else. After editing, run:
+    python3 -c "from agent_langgraph import _parse_json_response; print(_parse_json_response('Here is JSON:\n\n{\"a\":1}'))"
+and show the output.
+
+Then STOP.

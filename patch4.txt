@@ -1,0 +1,32 @@
+STRICT SCOPE: Only edit agent_langgraph.py. Do not run git commands. Do not commit, stage, or push. Do not touch routes, models.py, or any other file.
+
+Problem: The FastAPI layer fails with ValidationError because RankedReport expects strategies_evaluated items to have shape {"rank": int, "strategy": <full RepairStrategy object>, "justification": str, "trade_off_acknowledged": str}. But the LLM outputs {"rank": int, "strategy_name": str, "justification": str, "trade_off_acknowledged": str}.
+
+Fix: Keep the LLM outputting strategy_name (correct design — LLM only selects, Python expands). In the finalize_report function, BEFORE returning the result, transform each ranked_strategies item by looking up the full catalog entry:
+
+For each item in ranked_strategies:
+  - Extract strategy_name
+  - Look up REPAIR_STRATEGY_CATALOG[strategy_name]
+  - Emit new dict: {"rank": ..., "strategy": <catalog entry>, "justification": ..., "trade_off_acknowledged": ...}
+  - If strategy_name not in catalog, skip that item (defensive)
+
+The transform should produce a list where each element has key "strategy" (the full object) and NOT "strategy_name".
+
+Edit only finalize_report. Do not change the LLM prompts (they should still ask for strategy_name). Do not change the fallback function.
+
+After editing, run:
+    python3 -c "
+from agent_langgraph import finalize_report
+state = {
+    'diagnostic_a': {}, 'diagnostic_b': {}, 'conflict': {},
+    'severity_ranking': [],
+    'ranked_strategies': [{'rank': 1, 'strategy_name': 'restart_cache', 'justification': 'x', 'trade_off_acknowledged': 'y'}],
+    'recommended_action': 'z',
+    'reasoning_summary': 'w',
+}
+out = finalize_report(state)
+import json
+print(json.dumps(out['strategies_evaluated'], indent=2))
+"
+
+Show the output. Then STOP. Do not commit. Do not run any other tests.

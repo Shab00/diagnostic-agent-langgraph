@@ -409,6 +409,34 @@ def _get_llm_client() -> OpenAI:
     return OpenAI(api_key=api_key, base_url="http://localhost:20128/v1")
 
 
+def _parse_json_response(text: str) -> dict:
+    """Robustly extract a JSON object from an LLM response.
+    
+    Handles: bare JSON, fenced JSON, JSON with preamble prose.
+    """
+    if not text:
+        raise ValueError("Empty LLM response")
+    
+    # Strip code fences if present
+    if "```json" in text:
+        text = text.split("```json", 1)[1].split("```", 1)[0].strip()
+    elif "```" in text:
+        text = text.split("```", 1)[1].split("```", 1)[0].strip()
+    
+    # Try direct parse
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    
+    # Fall back: first { to last }
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return json.loads(text[start:end+1])
+    
+    raise ValueError(f"Could not parse JSON from response: {text[:200]}")
+
 def rank_repairs_conflict(state: DiagnosticAgentState) -> DiagnosticAgentState:
     """STEP 2c: Rank repairs when APM and infra conflict.
     
@@ -448,6 +476,15 @@ Pre-computed severity ranking (authoritative deviation magnitudes):
 Available repair strategies:
 {json.dumps(REPAIR_STRATEGY_CATALOG, indent=2)}
 
+CRITICAL OUTPUT FORMAT:
+Your entire response must be a single valid JSON object.
+- Start response with {{
+- End response with }}
+- Do not write any prose before or after JSON
+- Do not use markdown code fences (no ```json)
+- Do not write headers, bullet points, or commentary outside JSON structure
+- first character of output must be {{, last character must be }}
+
 TASK: Select the THREE most relevant strategies to address the ROOT CAUSE (not symptoms).
 Explain why you trust infra or APM more in this case, and rank strategies 1-3 (1 = most recommended).
 
@@ -470,14 +507,7 @@ Return a JSON object with:
             temperature=0.2,
         )
         response_text = response.choices[0].message.content
-        
-        # Extract JSON from response (handle markdown code blocks if present)
-        if "```json" in response_text:
-            response_text = response_text.split("```json")[1].split("```")[0]
-        elif "```" in response_text:
-            response_text = response_text.split("```")[1].split("```")[0]
-        
-        ranking_data = json.loads(response_text)
+        ranking_data = _parse_json_response(response_text)
     except Exception as e:
         logging.warning(f"rank_repairs_conflict LLM call failed, using fallback: {e}")
         # Fallback to deterministic ranking on any error
@@ -532,6 +562,15 @@ Pre-computed severity ranking (authoritative deviation magnitudes):
 Available repair strategies:
 {json.dumps(REPAIR_STRATEGY_CATALOG, indent=2)}
 
+CRITICAL OUTPUT FORMAT:
+Your entire response must be a single valid JSON object.
+- Start response with {{
+- End response with }}
+- Do not write any prose before or after JSON
+- Do not use markdown code fences (no ```json)
+- Do not write headers, bullet points, or commentary outside JSON structure
+- first character of output must be {{, last character must be }}
+
 TASK: Select the THREE most relevant strategies ranked by severity and repair effectiveness.
 Rank strategies 1-3 (1 = most recommended). For each, explain the trade-off (why this over alternatives).
 
@@ -554,14 +593,7 @@ Return a JSON object with:
             temperature=0.2,
         )
         response_text = response.choices[0].message.content
-        
-        # Extract JSON from response (handle markdown code blocks if present)
-        if "```json" in response_text:
-            response_text = response_text.split("```json")[1].split("```")[0]
-        elif "```" in response_text:
-            response_text = response_text.split("```")[1].split("```")[0]
-        
-        ranking_data = json.loads(response_text)
+        ranking_data = _parse_json_response(response_text)
     except Exception as e:
         logging.warning(f"rank_repairs_agreement LLM call failed, using fallback: {e}")
         # Fallback to deterministic ranking on any error
@@ -645,11 +677,23 @@ def finalize_report(state: DiagnosticAgentState) -> dict:
     
     STEP 2d: Build output dict matching old agent.run_agent() shape.
     """
+    # Transform ranked_strategies: LLM outputs strategy_name, expand to full object
+    strategies_evaluated = []
+    for item in state.get("ranked_strategies", []):
+        strategy_name = item.get("strategy_name")
+        if strategy_name and strategy_name in REPAIR_STRATEGY_CATALOG:
+            strategies_evaluated.append({
+                "rank": item.get("rank"),
+                "strategy": REPAIR_STRATEGY_CATALOG[strategy_name],
+                "justification": item.get("justification"),
+                "trade_off_acknowledged": item.get("trade_off_acknowledged"),
+            })
+    
     return {
         "diagnostic_a": state.get("diagnostic_a"),
         "diagnostic_b": state.get("diagnostic_b"),
         "conflict": state.get("conflict"),
-        "strategies_evaluated": state.get("ranked_strategies"),
+        "strategies_evaluated": strategies_evaluated,
         "recommended_action": state.get("recommended_action"),
         "reasoning_summary": state.get("reasoning_summary"),
     }
@@ -741,23 +785,10 @@ def get_graph():
         _graph = build_graph()
     return _graph
 
-
 def run_agent(fault: dict, scenario: str) -> dict:
-    """Execute diagnostic workflow on fault + scenario.
-    
-    Signature matches old agent.py run_agent() for backward compatibility.
-    
-    Args:
-        fault: dict with 'description' key
-        scenario: str naming a scenario in simulator.SCENARIOS
-        
-    Returns:
-        dict with keys: diagnostic_a, diagnostic_b, conflict, 
-                        strategies_evaluated, recommended_action, reasoning_summary
-    """
+    """Execute diagnostic workflow on fault + scenario."""
     system_state = get_scenario(scenario)
-    
-    # Initialize state for graph invocation
+
     initial_state: DiagnosticAgentState = {
         "fault_description": fault.get("description", ""),
         "system_state": system_state,
@@ -769,17 +800,28 @@ def run_agent(fault: dict, scenario: str) -> dict:
         "recommended_action": None,
         "reasoning_summary": None,
     }
-    
-    # Invoke graph
+
     graph = get_graph()
     result = graph.invoke(initial_state)
-    
-    # Return output matching old agent.run_agent() signature
+
+    # Expand strategy_name into full catalog objects for the API schema
+    raw = result.get("ranked_strategies") or []
+    expanded = []
+    for item in raw:
+        name = item.get("strategy_name")
+        if name and name in REPAIR_STRATEGY_CATALOG:
+            expanded.append({
+                "rank": item.get("rank"),
+                "strategy": REPAIR_STRATEGY_CATALOG[name],
+                "justification": item.get("justification", ""),
+                "trade_off_acknowledged": item.get("trade_off_acknowledged", ""),
+            })
+
     return {
         "diagnostic_a": result.get("diagnostic_a"),
         "diagnostic_b": result.get("diagnostic_b"),
         "conflict": result.get("conflict"),
-        "strategies_evaluated": result.get("ranked_strategies"),
+        "strategies_evaluated": expanded,
         "recommended_action": result.get("recommended_action"),
         "reasoning_summary": result.get("reasoning_summary"),
     }
